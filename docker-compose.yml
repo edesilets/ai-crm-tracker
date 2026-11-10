@@ -1,14 +1,32 @@
 services:
-  app:
-    build: .
+  # Customers, contact info and quotes. http://localhost:8001/docs
+  crm:
+    build: ./services/crm
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/crm
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Vehicles, trips to job sites, GPS positions. http://localhost:8002/docs
+  tracking:
+    build: ./services/tracking
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/tracking
+      REDIS_URL: redis://redis:6379/0
+      CRM_URL: http://crm:8000
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      crm:
+        condition: service_started
     restart: unless-stopped
 
   db:
@@ -16,11 +34,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Creates the crm and tracking databases on first start.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      # Uses TCP so it only passes once the init scripts have finished
+      # and the tracking database exists.
+      test: ["CMD-SHELL", "psql -h 127.0.0.1 -U $$POSTGRES_USER -d tracking -c 'SELECT 1' >/dev/null"]
       interval: 5s
       timeout: 5s
       retries: 10

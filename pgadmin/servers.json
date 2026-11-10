@@ -1,11 +1,11 @@
 {
   "Servers": {
     "1": {
-      "Name": "app db",
+      "Name": "ai-crm-tracker",
       "Group": "Servers",
       "Host": "db",
       "Port": 5432,
-      "MaintenanceDB": "appdb",
+      "MaintenanceDB": "postgres",
       "Username": "app",
       "SSLMode": "prefer"
     }
